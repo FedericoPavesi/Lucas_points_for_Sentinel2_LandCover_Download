@@ -4,7 +4,7 @@ Federico Pavesi - [LinkedIn](https://www.linkedin.com/in/federico-pavesi-b236032
 
 Visualise results at [this link](https://federicopavesi-github-app-app-tn5gy3.streamlitapp.com/)
 
-![RGB Lazio image](/RGB.png) | ![Lazio land cover map](/CLASSIFIED.png)
+![RGB Lazio image](https://github.com/FedericoPavesi/Lucas_points_for_Sentinel2_LandCover_Download/blob/main/RGB.PNG) | ![Lazio land cover map](https://github.com/FedericoPavesi/Lucas_points_for_Sentinel2_LandCover_Download/blob/main/CLASSIFIED.PNG)
 
 __In this work__, what it is done is to propose a methodology which might overcome issues experimented in literature in the task of __building an effective land-cover classifier__. It starts by creating a balanced database composed by pixel (and neighbourhood) reflectance, coming from high precision remote sensing data with an associated land cover class. Then, a machine learning (random forest) and a deep learning (MLP) algorithms are trained and tuned until the best architecture is found. The result of this process is four trained models: two for when pixel neighbourhood is taken into account and two for when it is not. These models are compared between them in terms of test accuracy and training speed. After this comparison, a map of region Lazio is created using pixels median reflectance over 2018. This map is fed to each classification algorithm to finally produce respective land cover masks. The final step is to compute masks summary statistics (percentages of land cover classes coverage) and compare them with Lucas regional statistics in order to evaluate the precision of each mask.
 
