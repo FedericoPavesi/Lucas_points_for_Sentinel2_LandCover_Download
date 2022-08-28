@@ -228,7 +228,7 @@ while point < len(lucas):
     projection = s2_sr_col.first().select('B4').projection() 
     
     
-    img = s2_sr_col.select(bands).reduce(ee.Reducer.median())
+    img = s2_sr_col.select(bands).reduce(ee.Reducer.Median().setOutputs(bands))
     
     neighborhood = img.neighborhoodToArray(ee.Kernel.square(step), 0)
         
@@ -254,7 +254,7 @@ while point < len(lucas):
     
 e = time.time()
 
-print('Download took ', e - s,' minutes.')
+print('Download took ', e - s,' seconds.')
     
 #%%
 
@@ -262,11 +262,13 @@ print('Download took ', e - s,' minutes.')
 save_path = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/data/'
 
 # check to ensure there are no missing data
-cleaned = output_collection[[type(output_collection[i,1]) != type(None) for i in range(len(output_collection))], :]
+cleaned = [i for indx, i in enumerate(output_collection) if type(output_collection[indx][1]) != type(None)]
+
+cleaned == output_collection
 
 # transform into numpy array
 cleaned = np.array(cleaned, dtype = 'object')
 
 # save numpy array
 np.save(save_path + 'lucas_EU_' + str(shape[0]) + 'x' + str(shape[1]) + 
-        '_' + str(len(bands)) + 'M_MEDIAN.npy', cleaned)    
+        '_' + str(len(bands)) + 'MEDIAN.npy', cleaned)    

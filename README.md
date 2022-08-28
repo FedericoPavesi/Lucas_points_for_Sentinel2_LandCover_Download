@@ -2,7 +2,7 @@
 
 Federico Pavesi - [LinkedIn](https://www.linkedin.com/in/federico-pavesi-b2360323a/)
 
-Visualise results at [this link](https://federicopavesi-github-app-app-tn5gy3.streamlitapp.com/)
+Visualize results at [this link](https://federicopavesi-github-app-app-tn5gy3.streamlitapp.com/)
 
 ![RGB Lazio image](https://github.com/FedericoPavesi/Lucas_points_for_Sentinel2_LandCover_Download/blob/main/RGB.PNG) | ![Lazio land cover map](https://github.com/FedericoPavesi/Lucas_points_for_Sentinel2_LandCover_Download/blob/main/CLASSIFIED.PNG)
 
@@ -12,7 +12,7 @@ __This repository__ contains all necessary codes to build the training dataset, 
 
 __Each folder__ represents a step in the process, and contains all the codes needed to perform it. Attached, it is possible to find a .README with an explanation of each passage and additional requirements.
 
-__Codes__ are in python 3.9 language (some steps in .py and some in .ipynb) and were built in two different anaconda environments. Specifically, an [Earth Engine](https://earthengine.google.com/) and a [Tensorflow](https://www.tensorflow.org/) environment are needed for correctly run each procedure (I do not exclude it is possible to use a singe environment with Earth Engine and Tensorflow but I strongly suggest to keep them separately), follow installation procedures available from their respective website to correctly build both environments. Required libraries are mentioned step by step.
+__Codes__ are in python 3.9 language (some steps in .py and some in .ipynb) and were built in two different anaconda environments. Specifically, an [Earth Engine](https://earthengine.google.com/) and a [Tensorflow](https://www.tensorflow.org/) environment are needed for correctly run each procedure (I do not exclude it is possible to use a singe environment with Earth Engine and Tensorflow but I strongly suggest to keep them separate), follow installation procedures available from their respective website to correctly build both environments. Required libraries are mentioned step by step.
 
 __Author's note__: Proposed procedure is very simple and it's only the incipit of a wider ongoing research. Following this workflow it is very unlikely one could end up with an effective land cover classifier which is able to produce reliable soil classification. Nevertheless, it could provide useful baselines for future research from an analysis of both its strenghs and weaknesses. 
 

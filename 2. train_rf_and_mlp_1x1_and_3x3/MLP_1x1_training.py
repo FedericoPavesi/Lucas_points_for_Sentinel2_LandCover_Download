@@ -76,16 +76,22 @@ onedigitdict = pd.DataFrame(np.transpose(np.array([code, description, number])),
 
 
 #%%
+i = 0
+
+
 
 # SPECIFY DATA PATH
 path = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/data/'
 
 
-data = np.load(path + 'lucas_EU_3x3_12M_MEDIAN.npy',
+data = np.load(path + 'lucas_EU_3x3_12M_GEOMETRIC_MEDIAN.npy',
                allow_pickle = True)
 
+data = np.array([[data[i,0], np.array(np.round(data[i,1]), dtype = 'uint16')] for i in range(len(data))],
+                dtype = 'object')
+
 # we select central pixel of 3x3 images
-data = np.array([[data[i,0], data[i,1][1,1,:].reshape((1,1,12))] for i in range(len(data))], dtype = 'object')
+data = np.array([[data[i,0], data[i,1][:,1,1].reshape((1,1,12))] for i in range(len(data))], dtype = 'object')
 
 #%%
 
