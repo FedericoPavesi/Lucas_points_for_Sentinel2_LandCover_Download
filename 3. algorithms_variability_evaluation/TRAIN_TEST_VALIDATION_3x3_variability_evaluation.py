@@ -9,6 +9,7 @@ from sklearn.metrics import classification_report
 from sklearn import metrics
 import pickle
 from sklearn.ensemble import RandomForestClassifier
+import aspose.words as aw
 
 
 #%%
@@ -87,7 +88,73 @@ def RotationAugmentation(data, categories, length = 2000):
     return augment_frame
 
 
+def Reshape3x3(element):
+    image = element[1]
+    
+    newshape = np.empty((3,3,12), dtype = 'uint16')
+    
+    for band in range(image.shape[0]):
+        newshape[:,:,band] = image[band,:,:]
+        
+    newelement = np.empty((2), dtype = 'object')
+    
+    newelement[0] = element[0]
+    newelement[1] = newshape
+        
+    return newelement
 
+def OrderBands(element, from_order = ['B1', 'B11', 'B12', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9'], to_order = ['B4', 'B3', 'B2', 'B8', 'B5', 'B6', 'B7', 'B8A', 'B1', 'B9', 'B11', 'B12']):
+    from_order = np.array(from_order)
+    to_order = np.array(to_order)
+    image = element[1]
+    newimage = np.empty((image.shape[0], image.shape[1], image.shape[2]), dtype = 'uint16')
+    for band_pos in range(len(to_order)):
+        band = np.where(from_order == to_order[band_pos])[0]
+        newimage[band_pos,:,:] = image[band,:,:]
+        
+    return np.array([element[0], newimage], dtype = 'object')
+
+
+def SaveWordTable(path, numpy_table):
+    nrow = numpy_table.shape[0]
+    ncol = numpy_table.shape[1]
+    
+    doc = aw.Document()    
+    builder = aw.DocumentBuilder(doc)
+    
+    table = builder.start_table()
+    
+    builder.insert_cell()
+    
+    table.left_indent = 20.0
+    
+    builder.row_format.height = 40.0
+    
+    builder.paragraph_format.alignment = aw.ParagraphAlignment.CENTER
+    
+    builder.font.size = 12
+    
+    builder.font.name = 'Times New Roman'
+    
+    builder.cell_format.width = 100.0
+    
+    builder.write(str(np.round(numpy_table[0,0], 4)))
+    
+    for row in range(nrow):
+        for col in range(ncol):
+            if row == 0 and col == 0:
+                continue
+            elif col+1 == ncol:
+                builder.insert_cell()
+                builder.write(str(np.round(numpy_table[row, col], 4)))
+                builder.end_row()
+            else:
+                builder.insert_cell()
+                builder.write(str(np.round(numpy_table[row, col], 4)))
+                
+    builder.end_table()
+    
+    doc.save(path)
 
 #%%
 
@@ -111,14 +178,22 @@ onedigitdict = pd.DataFrame(np.transpose(np.array([code, description, number])),
 #%%
 
 
-path = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/data/'
-
-# data = np.load(path + 'lucas_EU_1x1_12M.npy',
-#                allow_pickle = True)
+# SPECIFY DATA PATH
+path = 'C:/Users/drikb/Desktop/Land Cover Classifier/Data/'
 
 
-data = np.load(path + 'lucas_EU_3x3_12M_MEDIAN.npy',
+data = np.load(path + 'lucas_EU_3x3_12GEOMETRIC_MEDIAN.npy',
                allow_pickle = True)
+
+data = np.array([[data[i,0], np.array(np.round(data[i,1]), dtype = 'uint16')] for i in range(len(data))],
+                dtype = 'object')
+
+
+data = np.array(list(map(OrderBands, data)), dtype = 'object')
+
+
+data = np.array(list(map(Reshape3x3, data)), dtype = 'object')
+
 
 
 #%%
@@ -148,6 +223,7 @@ sample_size = min(lengths)
 ###############################################################################
 #                       MLP                                                   #
 ###############################################################################
+modelpath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Models/MLP/'
 
 MLP_comparisons = []
 
@@ -200,6 +276,11 @@ for trial in range(10):
     
     inputs = layers.Input((train_x.shape[-1]))
     x = layers.Rescaling(1./10000)(inputs)
+    x = layers.Dense(256, 
+                      activation = 'relu', 
+                      kernel_regularizer = regularizers.L1L2(),
+                      bias_regularizer = regularizers.L1L2(),
+                      activity_regularizer = regularizers.L1L2())(x)
     x = layers.Dense(128, 
                      activation = 'relu', 
                      kernel_regularizer = regularizers.L1L2(),
@@ -238,7 +319,7 @@ for trial in range(10):
     history = model.fit(train_x, train_lab,
                         epochs = 100,
                         callbacks = callbacks,
-                        batch_size = 300,
+                        batch_size = 2000,
                         validation_data = (validation_x, validation_lab))
     
     
@@ -246,7 +327,6 @@ for trial in range(10):
     test_loss, test_acc = test_model.evaluate(test_x, test_lab)
     print(f'test accuracy: {test_acc:.3f}')
     
-    modelpath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Codes_for_variability_evaluation/Models/MLP3x3/'
     test_model.save(modelpath + 'NN_3x3_trial_' + str(trial))
     
     predictions = test_model.predict(test_x)
@@ -257,31 +337,36 @@ for trial in range(10):
 
 
 #%%
-savepath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Codes_for_variability_evaluation/Performances/'
+savepath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Models_Performances/MLP/'
 
 np.save(savepath + 'MLP_3x3_performances.npy',
         np.array(MLP_comparisons, dtype = 'object'))
 
 
-MLP_comparisons = np.load(savepath + 'MLP_3x3_performances.npy',
-                           allow_pickle = True)
+# MLP_comparisons = np.load(savepath + 'MLP_3x3_performances.npy',
+#                             allow_pickle = True)
 
         
 #%%
 
-
+MLP_comparisons = np.array(MLP_comparisons, dtype = 'object')
 MLP_comparisons[:,1]
 conf_perc = MLP_comparisons[:,0]/1000
 mean_mlp_conf_matrix = np.mean(conf_perc, axis = 0)
 std_mlp_conf_matrix = np.std(conf_perc, axis = 0)
 
+avg_accuracy = np.mean(mean_mlp_conf_matrix.diagonal())
 
+SaveWordTable(savepath + 'MLP3x3_mean_conf_mat.docx', mean_mlp_conf_matrix)         
+SaveWordTable(savepath + 'MLP3x3_std_conf_mat.docx', std_mlp_conf_matrix)         
+ 
 
 #%%
 
 ###############################################################################
 #              RANDOM FOREST                                                  #
 ###############################################################################
+modelpath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Models/RF/'
 
 RF_comparisons = []
 for trial in range(10):
@@ -332,8 +417,8 @@ for trial in range(10):
         print(len(np.where(train_lab == cat)[0]))
         
     bestmodel = RandomForestClassifier(n_estimators = 100, # number of trees
-                                      max_samples = 2800, # observations per bootstrapped sample
-                                      max_features = 9, # number of regressors
+                                      max_samples = 3000, # observations per bootstrapped sample
+                                      max_features = 46, # number of regressors
                                       random_state = 42)
     
     bestmodel.fit(train_x, train_lab)
@@ -344,7 +429,6 @@ for trial in range(10):
     print("Accuracy = ", metrics.accuracy_score(test_lab, best_pred))
     print('The theoretical accuracy of a random classifier is: ', 1/(len(np.unique(train_lab))))
     
-    modelpath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Codes_for_variability_evaluation/Models/RF3x3/'
     pickle.dump(bestmodel, open(modelpath + 'RF_3x3_trial_' + str(trial), 'wb'))
     
     matrix = confusion_matrix(test_lab, best_pred)
@@ -354,17 +438,24 @@ for trial in range(10):
     
 #%%
 
-savepath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Codes_for_variability_evaluation/Performances/'
+savepath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Models_Performances/RF/'
 
 np.save(savepath + 'RF_3x3_performances.npy',
         np.array(RF_comparisons, dtype = 'object'))
 
 
-RF_comparisons = np.load(savepath + 'RF_3x3_performances.npy',
-                           allow_pickle = True)
+# RF_comparisons = np.load(savepath + 'RF_3x3_performances.npy',
+#                            allow_pickle = True)
 
 #%%
-#RF_comparisons = np.array(RF_comparisons, dtype = 'object')
+RF_comparisons = np.array(RF_comparisons, dtype = 'object')
 conf_perc = RF_comparisons[:,0]/1000
 mean_rf_conf_matrix = np.mean(conf_perc, axis = 0)
 std_rf_conf_matrix = np.std(conf_perc, axis = 0)
+
+
+avg_accuracy = np.mean(mean_rf_conf_matrix.diagonal())
+
+SaveWordTable(savepath + 'RF3x3_mean_conf_mat.docx', mean_rf_conf_matrix)         
+SaveWordTable(savepath + 'RF3x3_std_conf_mat.docx', std_rf_conf_matrix)         
+ 

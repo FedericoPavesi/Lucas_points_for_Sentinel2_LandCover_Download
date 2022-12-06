@@ -53,6 +53,17 @@ def DatasetBalance(data, numerosity = 3000, category_col = 0, dtype = 'uint16'):
     final_frame = np.array(final_frame, dtype = dtype)
     return final_frame
 
+def OrderBands(element, from_order = ['B1', 'B11', 'B12', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9'], to_order = ['B4', 'B3', 'B2', 'B8', 'B5', 'B6', 'B7', 'B8A', 'B1', 'B9', 'B11', 'B12']):
+    from_order = np.array(from_order)
+    to_order = np.array(to_order)
+    image = element[1]
+    newimage = np.empty((image.shape[0], image.shape[1], image.shape[2]), dtype = 'uint16')
+    for band_pos in range(len(to_order)):
+        band = np.where(from_order == to_order[band_pos])[0]
+        newimage[band_pos,:,:] = image[band,:,:]
+        
+    return np.array([element[0], newimage], dtype = 'object')
+
 
 #%%
 
@@ -77,14 +88,20 @@ onedigitdict = pd.DataFrame(np.transpose(np.array([code, description, number])),
 #%%
 
 # SPECIFY DATA PATH
-path = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/data/'
+path = 'C:/Users/drikb/Desktop/Land Cover Classifier/Data/'
 
 
-data = np.load(path + 'lucas_EU_3x3_12M_MEDIAN.npy',
+data = np.load(path + 'lucas_EU_3x3_12GEOMETRIC_MEDIAN.npy',
                allow_pickle = True)
 
+data = np.array([[data[i,0], np.array(np.round(data[i,1]), dtype = 'uint16')] for i in range(len(data))],
+                dtype = 'object')
+
+data = np.array(list(map(OrderBands, data)), dtype = 'object')
+
+
 # we select central pixel of 3x3 images
-data = np.array([[data[i,0], data[i,1][1,1,:].reshape((1,1,12))] for i in range(len(data))], dtype = 'object')
+data = np.array([[data[i,0], data[i,1][:,1,1].reshape((1,1,12))] for i in range(len(data))], dtype = 'object')
 
 #%%
 
@@ -208,8 +225,8 @@ print(matrix/1000)
 # use this chunk to save the model parameters and avoid tuning every time
 
 bestmodel = RandomForestClassifier(n_estimators = 100, # number of trees
-                                  max_samples = 2800, # observations per bootstrapped sample
-                                  max_features = 9, # number of regressors
+                                  max_samples = 3000, # observations per bootstrapped sample
+                                  max_features = 10, # number of regressors
                                   random_state = 42)
 
 bestmodel.fit(train_x, train_lab)

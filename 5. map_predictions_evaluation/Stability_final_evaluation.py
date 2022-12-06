@@ -22,7 +22,7 @@ lucas_stat = pd.read_csv(lucas_stat_path + 'lan_lcv_ovw_1_Data.csv', encoding='l
 
 #%%
 
-path = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Codes_for_variability_evaluation/Predictions/MLP3x3/'
+path = 'C:/Users/drikb/Desktop/Land Cover Classifier/Predictions/RF3x3/'
 
 all_percentages = []
 for trial in os.listdir(path):
@@ -150,7 +150,7 @@ fig2 = sns.barplot(data = comparison_df,
                 edgecolor = 'black',
                 ax = ax2)
 ax2.set_xticklabels(labels = fig2.get_xticklabels(), rotation = 30)
-ax2.set_yticklabels(labels = [np.arange(-20, 30, 10).astype('str')[i] + '%' for i in range(5)])
+ax2.set_yticklabels(labels = [np.arange(-20, 30, 5).astype('str')[i] + '%' for i in range(9)])
 
 
 # FIGURE 3 - rel diff

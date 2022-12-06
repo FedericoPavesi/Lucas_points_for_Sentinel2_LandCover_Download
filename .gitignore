@@ -1,0 +1,6 @@
+*.tif
+*.npy
+**/Models/RF
+**/Models/MLP
+**/Models_Performances/MLP
+**/Model_Performances/RF

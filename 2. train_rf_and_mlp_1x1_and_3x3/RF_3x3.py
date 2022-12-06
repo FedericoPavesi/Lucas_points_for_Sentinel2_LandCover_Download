@@ -84,6 +84,31 @@ def RotationAugmentation(data, categories, length = 2000):
     augment_frame = np.array(augment_list, dtype = 'object')
     return augment_frame
 
+def OrderBands(element, from_order = ['B1', 'B11', 'B12', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9'], to_order = ['B4', 'B3', 'B2', 'B8', 'B5', 'B6', 'B7', 'B8A', 'B1', 'B9', 'B11', 'B12']):
+    from_order = np.array(from_order)
+    to_order = np.array(to_order)
+    image = element[1]
+    newimage = np.empty((image.shape[0], image.shape[1], image.shape[2]), dtype = 'uint16')
+    for band_pos in range(len(to_order)):
+        band = np.where(from_order == to_order[band_pos])[0]
+        newimage[band_pos,:,:] = image[band,:,:]
+        
+    return np.array([element[0], newimage], dtype = 'object')
+
+def Reshape3x3(element):
+    image = element[1]
+    
+    newshape = np.empty((3,3,12), dtype = 'uint16')
+    
+    for band in range(image.shape[0]):
+        newshape[:,:,band] = image[band,:,:]
+        
+    newelement = np.empty((2), dtype = 'object')
+    
+    newelement[0] = element[0]
+    newelement[1] = newshape
+        
+    return newelement
 
 
 #%%
@@ -109,10 +134,21 @@ onedigitdict = pd.DataFrame(np.transpose(np.array([code, description, number])),
 #%%
 
 
-path = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/data/'
+# SPECIFY DATA PATH
+path = 'C:/Users/drikb/Desktop/Land Cover Classifier/Data/'
 
-data = np.load(path + 'lucas_EU_3x3_12M.npy',
+
+data = np.load(path + 'lucas_EU_3x3_12GEOMETRIC_MEDIAN.npy',
                allow_pickle = True)
+
+data = np.array([[data[i,0], np.array(np.round(data[i,1]), dtype = 'uint16')] for i in range(len(data))],
+                dtype = 'object')
+
+
+data = np.array(list(map(OrderBands, data)), dtype = 'object')
+
+
+data = np.array(list(map(Reshape3x3, data)), dtype = 'object')
 
 
 #%%
@@ -245,8 +281,8 @@ print(matrix/1000)
 # use this chunk to save the model parameters and avoid tuning every time
 
 bestmodel = RandomForestClassifier(n_estimators = 100, # number of trees
-                                  max_samples = 2600, # observations per bootstrapped sample
-                                  max_features = 41, # number of regressors
+                                  max_samples = 3000, # observations per bootstrapped sample
+                                  max_features = 46, # number of regressors
                                   random_state = 42)
 
 bestmodel.fit(train_x, train_lab)

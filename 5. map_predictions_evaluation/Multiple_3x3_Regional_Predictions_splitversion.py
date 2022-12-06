@@ -335,107 +335,74 @@ for raster_name in os.listdir(rasterpath):
 
     image, ref = ReadLazio(ref = rasterpath + raster_name, return_georef = True)
     
-    if raster_name == 'Lazio_2018-0000000000-0000000000-002.tif':
-        print('Elaborating large raster')
-        kernel_size = 3
-        padding_mode = 'edge'
-        pad_size = kernel_size // 2
-        pad = np.pad(image, [(pad_size,pad_size), (pad_size,pad_size), (0,0)], mode = padding_mode)
+    print('Elaborating large raster')
+    kernel_size = 3
+    padding_mode = 'edge'
+    pad_size = kernel_size // 2
+    pad = np.pad(image, [(pad_size,pad_size), (pad_size,pad_size), (0,0)], mode = padding_mode)
+    
+    nonzero = np.where(image[:,:,0] != 0)
+    
+    image_trace = np.zeros((image.shape[0], image.shape[1]), dtype = 'bool')
+    image_trace[nonzero] = True
         
-        nonzero = np.where(image[:,:,0] != 0)
-        
-        image_trace = np.zeros((image.shape[0], image.shape[1]), dtype = 'bool')
-        image_trace[nonzero] = True
-            
-        step_fw = kernel_size // 2 + 1 + pad_size #we do this because nonzero positions doesn't take into
-        step_bw = -(kernel_size // 2) + pad_size     #account the padding
-        
-        kernels = [pad[i + step_bw: i + step_fw, j + step_bw: j + step_fw] for i, j in zip(nonzero[0], nonzero[1])]
-        
-        data_step_split = int(len(kernels)/40) #splitting process_____
-        
-        try:
-            for model in os.listdir(modelpath):
-                if '3x3' in model:
-                    # if n_models == max_models: #___________________
-                    #     break
-                    bestmodel = pickle.load(open(modelpath + model, 'rb'))
-                    # n_models += 1  #________________
+    step_fw = kernel_size // 2 + 1 + pad_size #we do this because nonzero positions doesn't take into
+    step_bw = -(kernel_size // 2) + pad_size     #account the padding
+    
+    kernels = [pad[i + step_bw: i + step_fw, j + step_bw: j + step_fw] for i, j in zip(nonzero[0], nonzero[1])]
+    
+    data_step_split = int(len(kernels)/40) #splitting process_____
+    
+    try:
+        for model in os.listdir(modelpath):
+            if '3x3' in model:
+                # if n_models == max_models: #___________________
+                #     break
+                bestmodel = pickle.load(open(modelpath + model, 'rb'))
+                # n_models += 1  #________________
 
-                    print('Model loaded!')
-                    
-                    savepath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Predictions/RF3x3/trial_' + model[-1] + '/'
-                    
-                    if 'Lazio_pred_' + raster_name[-25:] in os.listdir(savepath):
-                        continue
-                    
-                    finmap = []
-                    
-                    for split_step in range(40): #splitting process_____
-                        print('processing from', split_step*data_step_split, 'to', (split_step+1)*data_step_split)
-                        if split_step == 39: #last iteration_____
-                            np_raster_flatten = np.array([kernels[i].flatten() for i in range(split_step*data_step_split, len(kernels))], dtype = 'uint16')
-                        else:
-                            np_raster_flatten = np.array([kernels[i].flatten() for i in range(split_step*data_step_split, (split_step + 1)*data_step_split)], dtype = 'uint16')
-                        
-                        print('Start prediction...')
-                        predictions_map = bestmodel.predict(np_raster_flatten)
-                        print('END!')
-                        
-                        predictions_map += 1
-                        
-                        finmap.append(predictions_map)
-                    
-                    print('merging predictions...')
-                    finmap = np.concatenate(finmap).astype('uint8')
-                    
-                    final_map = PredictionsToImage(finmap, trace = image_trace, train_size = 1)
-                     
-                    SaveToGeoTiff(savepath + 'Lazio_pred_' + raster_name[-25:], final_map, ref)
-                        
-                    t1 = time.time()
-                    print('Process took', (t1 - t0)/60, ' minutes')
-                    pred_times.append((t1-t0)/60)
-                    
-                    del finmap, final_map, np_raster_flatten
-                    
-            del kernels
-        
-        except KeyboardInterrupt:
-            break
-        except:
-            print('Error: raster is empty, proceding to next one...')
-    else:
-        np_raster_flatten, image_trace = KernelImageFlattener(image)
-        try:
-            for model in os.listdir(modelpath):
-                if '3x3' in model:
-                    # if n_models == max_models: #___________________
-                    #     break
-                    bestmodel = load_model(modelpath + model)
-                    # n_models += 1 #____________________
-                    print('Model loaded!')
-        
-                    savepath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Predictions/RF3x3/trial_' + model[-1] + '/'
-                    
-                    if 'Lazio_pred_' + raster_name[-25:] in os.listdir(savepath):
-                        continue
+                print('Model loaded!')
+                
+                savepath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Predictions/RF3x3/trial_' + model[-1] + '/'
+                
+                if 'Lazio_pred_' + raster_name[-25:] in os.listdir(savepath):
+                    continue
+                
+                finmap = []
+                
+                for split_step in range(40): #splitting process_____
+                    print('processing from', split_step*data_step_split, 'to', (split_step+1)*data_step_split)
+                    if split_step == 39: #last iteration_____
+                        np_raster_flatten = np.array([kernels[i].flatten() for i in range(split_step*data_step_split, len(kernels))], dtype = 'uint16')
+                    else:
+                        np_raster_flatten = np.array([kernels[i].flatten() for i in range(split_step*data_step_split, (split_step + 1)*data_step_split)], dtype = 'uint16')
                     
                     print('Start prediction...')
-                    predictions_map = bestmodel.predict(np_raster_flatten).argmax(axis = 1)
+                    predictions_map = bestmodel.predict(np_raster_flatten)
                     print('END!')
-        
+                    
                     predictions_map += 1
                     
-                    finmap = PredictionsToImage(predictions_map, trace = image_trace, train_size = 1)
+                    finmap.append(predictions_map)
+                
+                print('merging predictions...')
+                finmap = np.concatenate(finmap).astype('uint8')
+                
+                final_map = PredictionsToImage(finmap, trace = image_trace, train_size = 1)
+                 
+                SaveToGeoTiff(savepath + 'Lazio_pred_' + raster_name[-25:], final_map, ref)
                     
-                    SaveToGeoTiff(savepath + 'Lazio_pred_' + raster_name[-25:], finmap, ref)
-        except KeyboardInterrupt:
-            break
-        except:
-            print('Error: raster is empty, proceding to next one...')
-            
-        t1 = time.time()
-        print('Process took', (t1 - t0)/60, ' minutes')
-        pred_times.append((t1-t0)/60)
+                t1 = time.time()
+                print('Process took', (t1 - t0)/60, ' minutes')
+                pred_times.append((t1-t0)/60)
+                
+                del finmap, final_map, np_raster_flatten
+                
+        del kernels
+    
+    except KeyboardInterrupt:
+        break
+    except:
+        print('Error: raster is empty, proceding to next one...')
+    
 

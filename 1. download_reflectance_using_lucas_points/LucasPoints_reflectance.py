@@ -5,6 +5,7 @@ import ee
 import datetime
 from dateutil.relativedelta import relativedelta
 import time
+import functools
 
 #%%
 ee.Initialize()
@@ -95,6 +96,81 @@ def AugmentLucasFrame(pdframe, categories, length, digits = 1, shift = 6,
 
 
 
+def FlagCloudFree(image, point):
+    
+    
+    proj = image.select('B4').projection()
+    
+    neigh = image.neighborhoodToArray(ee.Kernel.square(step), 0)
+    
+    ext = neigh.reduceRegion(reducer = ee.Reducer.first(),
+                             geometry = point,
+                             crs = proj,
+                             scale = proj.nominalScale())
+        
+    free_opaque = ee.Algorithms.If(ext.getArray('QA60').toList().flatten().contains(1024),0,1)
+    free_cirrus = ee.Algorithms.If(ext.getArray('QA60').toList().flatten().contains(2048),0,1)
+    
+    free = ee.Number(free_opaque).multiply(ee.Number(free_cirrus))
+    
+    return image.set({'pixel_cloud_free' : free})
+
+def NullRemover2(image):
+    proj = image.select('B4').projection()
+    
+    neigh = image.neighborhoodToArray(ee.Kernel.square(step), 0)
+    
+    ext = neigh.reduceRegion(reducer = ee.Reducer.first(),
+                              geometry = aoi,
+                              crs = proj,
+                              scale = proj.nominalScale())
+    
+    emptdict = {'AOT': None,
+     'B1': None,
+     'B11': None,
+     'B12': None,
+     'B2': None,
+     'B3': None,
+     'B4': None,
+     'B5': None,
+     'B6': None,
+     'B7': None,
+     'B8': None,
+     'B8A': None,
+     'B9': None,
+     'MSK_CLDPRB': None,
+     'MSK_SNWPRB': None,
+     'QA10': None,
+     'QA20': None,
+     'QA60': None,
+     'SCL': None,
+     'TCI_B': None,
+     'TCI_G': None,
+     'TCI_R': None,
+     'WVP': None}
+    
+    isempty = ee.Algorithms.IsEqual(ext, ee.Dictionary(emptdict))
+    
+    return image.set({'is_empty' : isempty})
+
+
+def NullRemover(image):
+    proj = image.select('B4').projection()
+    
+    neigh = image.neighborhoodToArray(ee.Kernel.square(step), 0)
+    
+    ext = neigh.reduceRegion(reducer = ee.Reducer.first(),
+                              geometry = aoi,
+                              crs = proj,
+                              scale = proj.nominalScale())
+    
+    B4_dict = ee.Dictionary({'B4' : ee.List(ext.get('B4'))})
+    
+    check_dict = ee.Dictionary({'B4' : None})
+    
+    isempty = ee.Algorithms.IsEqual(B4_dict, check_dict)
+        
+    return image.set({'is_empty' : isempty})
 
 #%%
 
@@ -121,6 +197,7 @@ lucas = pd.concat(datalist)
 
 lucas = lucas.drop('index', axis = 1)
 lucas = lucas.reset_index()
+
 
 #%%
 
@@ -189,7 +266,9 @@ days = 0
 # as much the process is fastened.
 buffer_size = 100
 
+#%%
 
+ext_order = ['B1', 'B11', 'B12', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9']
 #%%
 
 # VARIABLES
@@ -201,13 +280,12 @@ lc_var = 'LC1'
 
 
 s = time.time()
-ee_points_collection = []
 output_collection = []
 errors_index = []
 
-point = 0
+ee_points_collection = []
+point = 30000
 while point < len(lucas):   
-    print('processing point ', str(point + 1), ' out of ', str(len(lucas)))
       
     step = shape[0]//2
         
@@ -221,14 +299,24 @@ while point < len(lucas):
 
     s2_sr_col = (ee.ImageCollection('COPERNICUS/S2_SR')
                  .filterBounds(aoi)
-                 .filterDate(start_date, end_date)
-                 .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', cloud_filter)))
+                 .filterDate(start_date, end_date))
     
+    s2_sr_col = s2_sr_col.map(NullRemover)
+
+    s2_sr_col = s2_sr_col.filter(ee.Filter.eq('is_empty', False))    
+    
+    individual_flag = functools.partial(FlagCloudFree, 
+                                        point = aoi)
+
+    s2_sr_col = s2_sr_col.map(individual_flag)
+
+    s2_sr_col = s2_sr_col.filter(ee.Filter.eq('pixel_cloud_free',1))
+        
 
     projection = s2_sr_col.first().select('B4').projection() 
     
     
-    img = s2_sr_col.select(bands).reduce(ee.Reducer.Median().setOutputs(bands))
+    img = s2_sr_col.select(bands).reduce(ee.Reducer.geometricMedian(len(bands)).setOutputs(bands))
     
     neighborhood = img.neighborhoodToArray(ee.Kernel.square(step), 0)
         
@@ -243,8 +331,12 @@ while point < len(lucas):
     ee_points_collection.append(listobj)   
     
     if (point+1)%buffer_size == 0:
+        st = time.time()
+        print('processing point ', str(point + 1), ' out of ', str(len(lucas)))
         ee_points_collection = ee.List(ee_points_collection)
         output_collection.extend(ee_points_collection.getInfo())
+        en = time.time()
+        print('Iteration took', en-st, 'seconds')
         ee_points_collection = []
     elif point+1 == len(lucas):
         ee_points_collection = ee.List(ee_points_collection)
@@ -255,11 +347,117 @@ while point < len(lucas):
 e = time.time()
 
 print('Download took ', e - s,' seconds.')
+
+#%%
+
+# function currentHS_function(image){
+#   var proxy = -999
+#   image = image.unmask(proxy)
+#   var currentHS = image.expression(
+#  "(b('current') == proxy) ? 0.0" +
+#  ": (b('current') < 0.13) ? 1.0" +
+#  ": (b('current') > 0.15) ? 0.0" +
+#  ": -50.0*current + 15.0/2.0 ",
+#  {"current" : image, "proxy": proxy});
+#    return currentHS;
+#  }
+#%%
+
+point = 30000
+while point < len(lucas): 
+    
+    print(point)
+    
+    point = 30010
+      
+    step = shape[0]//2
+        
+    lat = lucas.loc[point, lat_var]
+    long = lucas.loc[point, long_var]
+    date = lucas.loc[point, date_var]
+    lc1 = lucas.loc[point, lc_var]
+
+    aoi = ee.Geometry.Point([long, lat], 'EPSG:4326')
+    start_date, end_date = DateToQuery(date, months = months, days = days)
+
+    s2_sr_col = (ee.ImageCollection('COPERNICUS/S2_SR')
+                 .filterBounds(aoi)
+                 .filterDate(start_date, end_date))
+    
+    s2_sr_col.size().getInfo()
+    
+    # s2list = s2_sr_col.toList(s2_sr_col.size())
+    
+    # size = s2_sr_col.size().getInfo()
+    
+    # i = 0
+    # while i < size:
+                
+    #     image = ee.Image(s2list.get(i))
+        
+    #     proj = image.select('B4').projection()
+        
+    #     neigh = image.neighborhoodToArray(ee.Kernel.square(step), 0)
+        
+    #     ext = neigh.reduceRegion(reducer = ee.Reducer.first(),
+    #                               geometry = aoi,
+    #                               crs = proj,
+    #                               scale = proj.nominalScale())
+        
+    #     ext.getInfo()
+        
+    #     B4_dict = ee.Dictionary({'B4' : ee.List(ext.get('B4'))})
+        
+    #     check_dict = ee.Dictionary({'B4' : None})
+        
+    #     isempty = ee.Algorithms.IsEqual(B4_dict, check_dict)
+        
+    #     print('\n', i, 'is fine')
+    #     if isempty.getInfo() == False:
+    #         print(ext.getInfo())
+        
+    #     i += 1
+        
+    
+    s2_sr_col = s2_sr_col.map(NullRemover2)
+    
+    s2_sr_col.size().getInfo()
+
+    s2_sr_col = s2_sr_col.filter(ee.Filter.eq('is_empty', False))  
+    
+    s2_sr_col.size().getInfo()
+    
+    individual_flag = functools.partial(FlagCloudFree, 
+                                        point = aoi)
+
+    s2_sr_col = s2_sr_col.map(individual_flag)
+
+    s2_sr_col = s2_sr_col.filter(ee.Filter.eq('pixel_cloud_free',1))
+    
+    #s2_sr_col.size().getInfo()
+        
+
+    projection = s2_sr_col.first().select('B4').projection() 
+    
+    
+    img = s2_sr_col.select(bands).reduce(ee.Reducer.geometricMedian(len(bands)).setOutputs(bands))
+    
+    neighborhood = img.neighborhoodToArray(ee.Kernel.square(step), 0)
+        
+    extracted = neighborhood.reduceRegion(reducer = ee.Reducer.first(),
+                                          geometry = aoi,
+                                          crs = projection,
+                                          scale = projection.nominalScale())
+    
+    extracted.getInfo()
+    
+    point += 1
+    
     
 #%%
 
 # define a path where to save 
-save_path = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/data/'
+save_path = 'C:/Users/drikb/Desktop/Land Cover Classifier/Data/'
 
 # check to ensure there are no missing data
 cleaned = [i for indx, i in enumerate(output_collection) if type(output_collection[indx][1]) != type(None)]
@@ -271,4 +469,4 @@ cleaned = np.array(cleaned, dtype = 'object')
 
 # save numpy array
 np.save(save_path + 'lucas_EU_' + str(shape[0]) + 'x' + str(shape[1]) + 
-        '_' + str(len(bands)) + 'MEDIAN.npy', cleaned)    
+        '_' + str(len(bands)) + 'GEOMETRIC_MEDIAN.npy', cleaned)    

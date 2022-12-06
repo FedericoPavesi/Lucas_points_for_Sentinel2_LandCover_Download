@@ -139,8 +139,8 @@ def SaveToGeoTiff(save_directory, map_data, reference):
 #               RANDOM FOREST                                                 #
 ###############################################################################
 
-modelpath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Codes_for_variability_evaluation/Models/RF/'
-rasterpath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Regions/Lazio/Good_shape/'
+modelpath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Models/RF/'
+rasterpath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Rasters/'
 
 pred_times = []
 
@@ -149,30 +149,33 @@ for raster_name in os.listdir(rasterpath):
 
     image, ref = ReadLazio(ref = rasterpath + raster_name, return_georef = True)
     np_raster_flatten, image_trace = FastImageFlattener(image)
+    print('Image correctly flattened!')
     
     try:
         for model in os.listdir(modelpath):
-            bestmodel = pickle.load(open(modelpath + model, 'rb'))
             
-            savepath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Codes_for_variability_evaluation/Predictions/RF/trial_' + model[-1] + '/'
-            
-            if 'Lazio_pred_' + raster_name[-25:] in os.listdir(savepath):
-                continue
-            
-            predictions_map = bestmodel.predict(np_raster_flatten)
-            
-            predictions_map += 1
-            
-            finmap = PredictionsToImage(predictions_map, trace = image_trace, train_size = 1)
-            
-            SaveToGeoTiff(savepath + 'Lazio_pred_' + raster_name[-25:], finmap, ref)
+            if '1x1' in model:
+                bestmodel = pickle.load(open(modelpath + model, 'rb'))
+                print('Model loaded!')
+                savepath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Predictions/RF1x1/trial_' + model[-1] + '/'
+                
+                if 'Lazio_pred_' + raster_name[-25:] in os.listdir(savepath):
+                    continue
+                
+                print('Start prediction...')
+                predictions_map = bestmodel.predict(np_raster_flatten)
+                
+                predictions_map += 1
+                
+                finmap = PredictionsToImage(predictions_map, trace = image_trace, train_size = 1)
+                
+                SaveToGeoTiff(savepath + 'Lazio_pred_' + raster_name[-25:], finmap, ref)
     except:
         print('Error: raster is empty, proceding to next one...')
         
     t1 = time.time()
     print('Process took', (t1 - t0)/60, ' minutes')
     pred_times.append((t1-t0)/60)
-
 
 
 #%%
@@ -182,8 +185,8 @@ for raster_name in os.listdir(rasterpath):
 ###############################################################################
 
 
-modelpath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Codes_for_variability_evaluation/Models/MLP/'
-rasterpath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Regions/Lazio/Good_shape/'
+modelpath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Models/MLP/'
+rasterpath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Rasters/'
 
 pred_times = []
 
@@ -192,23 +195,26 @@ for raster_name in os.listdir(rasterpath):
 
     image, ref = ReadLazio(ref = rasterpath + raster_name, return_georef = True)
     np_raster_flatten, image_trace = FastImageFlattener(image)
+    print('Image correctly flattened!')
     
     try:
         for model in os.listdir(modelpath):
-            bestmodel = load_model(modelpath + model)
-            
-            savepath = 'C:/Users/drikb/Desktop/Tirocinio/EarthEngine/Codes_for_variability_evaluation/Predictions/MLP/trial_' + model[-1] + '/'
-            
-            if 'Lazio_pred_' + raster_name[-25:] in os.listdir(savepath):
-                continue
-            
-            predictions_map = bestmodel.predict(np_raster_flatten).argmax(axis = 1)
-            
-            predictions_map += 1
-            
-            finmap = PredictionsToImage(predictions_map, trace = image_trace, train_size = 1)
-            
-            SaveToGeoTiff(savepath + 'Lazio_pred_' + raster_name[-25:], finmap, ref)
+            if '1x1' in model:
+                bestmodel = load_model(modelpath + model)
+                print('Model loaded!')
+                savepath = 'C:/Users/drikb/Desktop/Land Cover Classifier/Predictions/MLP1x1/trial_' + model[-1] + '/'
+                
+                if 'Lazio_pred_' + raster_name[-25:] in os.listdir(savepath):
+                    continue
+                
+                print('Start prediction...')
+                predictions_map = bestmodel.predict(np_raster_flatten).argmax(axis = 1)
+                print('END!')
+                predictions_map += 1
+                
+                finmap = PredictionsToImage(predictions_map, trace = image_trace, train_size = 1)
+                
+                SaveToGeoTiff(savepath + 'Lazio_pred_' + raster_name[-25:], finmap, ref)
     except:
         print('Error: raster is empty, proceding to next one...')
         
